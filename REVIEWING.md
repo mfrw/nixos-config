@@ -288,12 +288,28 @@ host home is mounted read-only over virtiofs, and lazy.nvim needs to write
 on every `VimEnter`). A clone gives it a writable home; `lazy-lock.json` is
 untracked, so the per-machine copy diverges harmlessly.
 
-Two remotes, both on branch `mac`:
+### Branch layout
+
+`common` is the shared trunk holding the portable nvim config. Each machine
+branch is `common` plus a single `<machine>: machine-local configuration`
+commit (`mac`, `air-new`, `baaz`, ...). This VM tracks **`nix`**, which is
+`common` plus three nvim commits and no machine-local commit -- there is
+nothing machine-local to carry, because everything in them is runtime-detected.
+
+That last point matters: nixd is gated on `executable("nixd")` and mason on
+`/etc/NIXOS`, exactly as zls is gated on its source build. The files are
+therefore byte-identical on every machine, so `nix` can be merged straight into
+`common` (and from there into the machine branches) whenever convenient. It is
+a staging branch, not a fork.
 
 ```bash
-git -C ~/dotfiles pull host mac   # fast local sync from the read-only Mac mount
-git -C ~/dotfiles pull origin mac # from GitHub
+git -C ~/dotfiles pull host nix    # fast local sync from the read-only Mac mount
+git -C ~/dotfiles pull origin nix  # from GitHub, once pushed
 ```
+
+Note `commit.gpgsign = true` is set in the dotfiles gitconfig but no gpg binary
+is installed on the Mac, and its entire existing history is unsigned. Commits
+made there need `--no-gpg-sign`.
 
 Plugins live in the guest's own `~/.local/share/nvim/lazy`, entirely separate
 from the Mac's.
