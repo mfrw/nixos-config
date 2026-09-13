@@ -57,8 +57,29 @@
     ];
   };
 
-  # The /Users/<user> and /tmp/lima virtiofs mounts are written to /etc/fstab by
-  # lima-init at boot, so they are deliberately not declared here.
+  # Host shares. lima-init appends these to /etc/fstab at every boot, but a
+  # live `nixos-rebuild switch` regenerates /etc/fstab without them, and
+  # systemd then unmounts the shares out from under you. Declaring them here
+  # makes them survive activation. Tags come from `mount | grep virtiofs`;
+  # `nofail` guarantees a stale tag can never block boot, and lima-init still
+  # re-adds the authoritative entries on the next start.
+  fileSystems."/Users/mfrw" = {
+    device = "lima-2fd63231cbd3b44a";
+    fsType = "virtiofs";
+    options = [
+      "ro"
+      "nofail"
+    ];
+  };
+
+  fileSystems."/tmp/lima" = {
+    device = "lima-1fd4cbcaa36d359d";
+    fsType = "virtiofs";
+    options = [
+      "rw"
+      "nofail"
+    ];
+  };
 
   nixpkgs.hostPlatform = "aarch64-linux";
 
@@ -159,14 +180,21 @@
         sudo nixos-rebuild "$MODE" --flake ".#nixos"
 
         echo "==> [3/6] updating nixpkgs checkout"
-        if [ -d "$HOME/nixpkgs/.git" ]; then
-          git -C "$HOME/nixpkgs" fetch upstream --prune
+        # Non-fatal: a flaky fetch of a 3.6 GB repo must not abort maintenance.
+        update_nixpkgs() {
+          [ -d "$HOME/nixpkgs/.git" ] || return 0
+          git -C "$HOME/nixpkgs" fetch upstream --prune --quiet || return 1
+          local branch
           branch="$(git -C "$HOME/nixpkgs" rev-parse --abbrev-ref HEAD)"
           if [ "$branch" = "master" ] && [ -z "$(git -C "$HOME/nixpkgs" status --porcelain)" ]; then
             git -C "$HOME/nixpkgs" merge --ff-only upstream/master
           else
             echo "    skipped fast-forward (on '$branch', or tree is dirty)"
           fi
+        }
+        if ! update_nixpkgs; then
+          echo "    WARNING: nixpkgs fetch failed (network?); retry later with:"
+          echo "      git -C ~/nixpkgs fetch upstream --prune"
         fi
 
         echo "==> [4/6] collecting garbage (keeping 30 days)"
