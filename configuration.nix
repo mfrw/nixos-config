@@ -255,6 +255,10 @@
     go
     gopls
     rust-analyzer
+    # rust-analyzer refuses to load a workspace without cargo and rustc on
+    # PATH; without them every Rust buffer gets "cargo not found", not an LSP.
+    cargo
+    rustc
     clang-tools
     zls
     stylua

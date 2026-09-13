@@ -278,3 +278,61 @@ record of useful participation. Doing that requires Nix on the Mac itself,
 which was explicitly out of scope here. It remains the highest-leverage thing
 available, precisely because Apple Silicon hardware is what most reviewers
 lack.
+
+## 6. The editor (neovim)
+
+`~/.config/nvim` is a symlink to `~/dotfiles/config/nvim`, a **clone** of
+`mfrw/dotfiles` living in the guest filesystem. It is not the Mac checkout: the
+host home is mounted read-only over virtiofs, and lazy.nvim needs to write
+`lazy-lock.json` into the config directory (plus `init.lua` auto-updates plugins
+on every `VimEnter`). A clone gives it a writable home; `lazy-lock.json` is
+untracked, so the per-machine copy diverges harmlessly.
+
+Two remotes, both on branch `mac`:
+
+```bash
+git -C ~/dotfiles pull host mac   # fast local sync from the read-only Mac mount
+git -C ~/dotfiles pull origin mac # from GitHub
+```
+
+Plugins live in the guest's own `~/.local/share/nvim/lazy`, entirely separate
+from the Mac's.
+
+### Language servers come from Nix, not mason
+
+`configuration.nix` installs `gopls`, `rust-analyzer` (plus `cargo` and `rustc`,
+without which rust-analyzer refuses to load a workspace), `clang-tools`, `zls`,
+`nixd`, `nixfmt` and `stylua`. `vim.lsp.enable()` resolves servers straight off
+`PATH`, so nothing else is needed.
+
+`lsp.lua` skips mason entirely when `/etc/NIXOS` exists. That is not tidiness —
+mason cannot work here:
+
+- its prebuilt binaries are dynamically linked against FHS paths absent on NixOS
+  (`programs.nix-ld.enable` is on as a safety net, but does not fix the next one);
+- upstream `clangd` publishes **no aarch64-linux build at all**, so with
+  `autoupdate = true` it would error on every start, forever;
+- `mason.nvim` prepends its own `bin/` to `PATH`, so a broken download *shadows*
+  the working Nix binary.
+
+`gcc`, `gnumake` and `tree-sitter` are installed because
+`telescope-fzf-native` (`build = "make"`), LuaSnip's `jsregexp` and the
+treesitter `main` branch all compile at install time.
+
+### Expected state
+
+```bash
+nvim --headless "+Lazy! sync" +qa           # 32/32 plugins
+ls ~/.local/share/nvim/lazy/nvim-treesitter/parser  # incl. nix.so, cpp.so
+ls ~/.local/share/nvim/mason                # must NOT exist -- guard working
+```
+
+Opening a Go / Rust / C / Nix buffer should attach `gopls`, `rust_analyzer`,
+`clangd`, `nixd` respectively. On a `.nix` file, `:w` reformats through nixd →
+`nixfmt` (conform passes `lsp_format = "fallback"`, and there is no conform-side
+`nix` formatter). nixd is pointed at `~/nixpkgs` via a plain path import — not
+`builtins.getFlake`, which would copy the whole multi-gigabyte checkout into the
+store on every evaluation.
+
+`:checkhealth` reports a luarocks ERROR and a `python3` WARNING. Both are about
+optional functionality no installed plugin uses.
