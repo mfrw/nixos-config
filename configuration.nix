@@ -238,7 +238,32 @@
     jq
     tmux
     htop
+
+    # --- neovim build toolchain ---------------------------------------------
+    # The dotfiles config compiles things at plugin-install time:
+    # telescope-fzf-native (build = "make"), nvim-treesitter's parsers, and
+    # LuaSnip's jsregexp. Without a compiler those silently stay broken.
+    gcc
+    gnumake
+    tree-sitter
+
+    # --- language servers, from nixpkgs rather than mason -------------------
+    # mason ships prebuilt binaries linked against FHS paths that do not exist
+    # on NixOS, and upstream clangd publishes no aarch64-linux build at all, so
+    # mason can never satisfy this list here. nixpkgs has correct aarch64
+    # builds of all of them, and vim.lsp.enable() resolves servers off PATH.
+    go
+    gopls
+    rust-analyzer
+    clang-tools
+    zls
+    stylua
   ]);
+
+  # Lets dynamically linked, non-Nix binaries run (mason downloads, anything
+  # fetched by `go install`). Not required now that the servers come from
+  # nixpkgs, but it removes a whole category of "works everywhere except here".
+  programs.nix-ld.enable = true;
 
   environment.variables.EDITOR = "nvim";
 
