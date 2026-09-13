@@ -186,7 +186,7 @@
           git -C "$HOME/nixpkgs" fetch upstream --prune --quiet || return 1
           local branch
           branch="$(git -C "$HOME/nixpkgs" rev-parse --abbrev-ref HEAD)"
-          if [ "$branch" = "master" ] && [ -z "$(git -C "$HOME/nixpkgs" status --porcelain)" ]; then
+          if [ "$branch" = "master" ] && [ -z "$(git -C "$HOME/nixpkgs" status --porcelain --untracked-files=no)" ]; then
             git -C "$HOME/nixpkgs" merge --ff-only upstream/master
           else
             echo "    skipped fast-forward (on '$branch', or tree is dirty)"
