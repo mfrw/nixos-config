@@ -229,7 +229,6 @@
     gh
     git
     delta
-    neovim
     helix
     direnv
     starship
@@ -268,8 +267,12 @@
   # fetched by `go install`). Not required now that the servers come from
   # nixpkgs, but it removes a whole category of "works everywhere except here".
   programs.nix-ld.enable = true;
-
-  environment.variables.EDITOR = "nvim";
+  programs.neovim = {
+    enable = true;
+    viAlias = true;
+    vimAlias = true;
+    defaultEditor = true;
+  };
 
   # Do not change: this records the NixOS release this machine was first
   # installed with, not the release it tracks.
