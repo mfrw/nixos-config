@@ -57,29 +57,23 @@
     ];
   };
 
-  # Host shares. lima-init appends these to /etc/fstab at every boot, but a
-  # live `nixos-rebuild switch` regenerates /etc/fstab without them, and
-  # systemd then unmounts the shares out from under you. Declaring them here
-  # makes them survive activation. Tags come from `mount | grep virtiofs`;
-  # `nofail` guarantees a stale tag can never block boot, and lima-init still
-  # re-adds the authoritative entries on the next start.
-  fileSystems."/Users/mfrw" = {
-    device = "lima-2fd63231cbd3b44a";
-    fsType = "virtiofs";
-    options = [
-      "ro"
-      "nofail"
-    ];
-  };
-
-  fileSystems."/tmp/lima" = {
-    device = "lima-1fd4cbcaa36d359d";
-    fsType = "virtiofs";
-    options = [
-      "rw"
-      "nofail"
-    ];
-  };
+  # Host shares. At every boot lima-init deletes the #LIMA-START..#LIMA-END
+  # block of /etc/fstab and appends a fresh one from cidata. A live
+  # `nixos-rebuild switch` swaps in the generated fstab, and
+  # switch-to-configuration unmounts any mount point missing from it, so the
+  # shares must be listed here too. Seeding them as the same marker block,
+  # rather than as fileSystems, lets lima-init replace them at boot instead of
+  # appending duplicates ("Duplicate entry in '/etc/fstab'?"). Copy lines from
+  # `sed -n '/#LIMA-START/,/#LIMA-END/p' /etc/fstab` after a boot, keeping the
+  # options identical (a mismatch makes switch remount the share). The
+  # vz-rosetta line is left out on purpose: it lacks `nofail`, so a stale copy
+  # could block boot, and virtualisation.rosetta below uses /run/rosetta.
+  environment.etc.fstab.text = lib.mkAfter ''
+    #LIMA-START
+    lima-2fd63231cbd3b44a /Users/mfrw virtiofs ro,nofail 0 0
+    lima-1fd4cbcaa36d359d /tmp/lima virtiofs rw,nofail 0 0
+    #LIMA-END
+  '';
 
   nixpkgs.hostPlatform = "aarch64-linux";
 
