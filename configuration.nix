@@ -236,6 +236,7 @@
     fd
     jq
     tmux
+    tailcat
     htop
 
     # --- neovim build toolchain ---------------------------------------------
