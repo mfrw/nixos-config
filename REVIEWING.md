@@ -16,11 +16,22 @@ revisiting.
 ```sh
 vm-update            # stage the update for next boot (default, recommended)
 vm-update --switch   # activate live instead
+vm-boot-clean        # only make safe room in /boot, without updating
 ```
 
-It does six things: update flake inputs → build the system → fast-forward
-`~/nixpkgs` → garbage-collect (keeping 30 days) → optimise the store →
-`fstrim` so freed blocks shrink the sparse image on the Mac.
+`vm-update` first runs `vm-boot-clean`, then updates flake inputs → builds the
+system → fast-forwards `~/nixpkgs` → garbage-collects (keeping 30 days) →
+optimises the store → runs `fstrim` so freed blocks shrink the sparse image on
+the Mac.
+
+`vm-boot-clean` targets 120 MiB free. It removes stale `.tmp` files left by
+interrupted bootloader installs, then removes only as many obsolete system
+generations as necessary. It always preserves both the current profile
+generation and the system that is running. Override the target when needed:
+
+```sh
+VM_BOOT_MIN_FREE_MIB=140 vm-boot-clean
+```
 
 After the default (`boot`) mode, activate from the **macOS host**:
 

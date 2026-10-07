@@ -6,6 +6,9 @@
   ...
 }:
 
+let
+  vmBootClean = pkgs.callPackage ./vm-boot-clean.nix { };
+in
 {
   imports = [ (modulesPath + "/profiles/qemu-guest.nix") ];
 
@@ -152,28 +155,51 @@
   # new system for the next boot by default (safest, and a kernel change needs
   # a reboot anyway); pass --switch to activate live instead.
   environment.systemPackages = [
+    vmBootClean
     (pkgs.writeShellApplication {
       name = "vm-update";
-      runtimeInputs = with pkgs; [
+      runtimeInputs = (with pkgs; [
         git
         nix
         util-linux
-      ];
+      ]) ++ [ vmBootClean ];
       text = ''
         CONFIG="''${NIXOS_CONFIG_DIR:-$HOME/nixos-config}"
         MODE="boot"
-        if [ "''${1:-}" = "--switch" ]; then MODE="switch"; fi
+        case "''${1:-}" in
+          "")
+            ;;
+          --switch)
+            MODE="switch"
+            ;;
+          -h|--help)
+            cat <<EOF
+        Usage: vm-update [--switch]
 
-        echo "==> [1/6] updating flake inputs in $CONFIG"
+        Safely prepare /boot, update the flake and system, update the nixpkgs
+        checkout, collect garbage, optimise the store, and trim filesystems.
+        EOF
+            exit 0
+            ;;
+          *)
+            echo "Usage: vm-update [--switch]" >&2
+            exit 2
+            ;;
+        esac
+
+        echo "==> [1/7] ensuring /boot has room for the update"
+        vm-boot-clean
+
+        echo "==> [2/7] updating flake inputs in $CONFIG"
         cd "$CONFIG"
         nix flake update
         # Flakes only see git-tracked files, so stage the new lock before building.
         if [ -d .git ]; then git add -A; fi
 
-        echo "==> [2/6] building system ($MODE)"
+        echo "==> [3/7] building system ($MODE)"
         sudo nixos-rebuild "$MODE" --flake ".#nixos"
 
-        echo "==> [3/6] updating nixpkgs checkout"
+        echo "==> [4/7] updating nixpkgs checkout"
         # Non-fatal: a flaky fetch of a 3.6 GB repo must not abort maintenance.
         update_nixpkgs() {
           [ -d "$HOME/nixpkgs/.git" ] || return 0
@@ -191,14 +217,14 @@
           echo "      git -C ~/nixpkgs fetch upstream --prune"
         fi
 
-        echo "==> [4/6] collecting garbage (keeping 30 days)"
+        echo "==> [5/7] collecting garbage (keeping 30 days)"
         sudo nix-collect-garbage --delete-older-than 30d
         nix-collect-garbage --delete-older-than 30d
 
-        echo "==> [5/6] optimising store"
+        echo "==> [6/7] optimising store"
         sudo nix store optimise
 
-        echo "==> [6/6] returning freed blocks to the host image"
+        echo "==> [7/7] returning freed blocks to the host image"
         sudo fstrim -av
 
         df -h /
