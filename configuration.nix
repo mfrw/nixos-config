@@ -88,6 +88,9 @@ in
   services.openssh.enable = true;
   security.sudo.wheelNeedsPassword = false;
 
+  # -- Tailscale Integration -----
+  services.tailscale.enable = true;
+
   # --- x86_64-linux builds via Rosetta --------------------------------------
   # Lima (vz driver) exposes Rosetta as a virtiofs share tagged "vz-rosetta".
   # This gives near-native x86_64-linux builds, which matters because most
