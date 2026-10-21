@@ -158,11 +158,13 @@ in
     vmBootClean
     (pkgs.writeShellApplication {
       name = "vm-update";
-      runtimeInputs = (with pkgs; [
-        git
-        nix
-        util-linux
-      ]) ++ [ vmBootClean ];
+      runtimeInputs =
+        (with pkgs; [
+          git
+          nix
+          util-linux
+        ])
+        ++ [ vmBootClean ];
       text = ''
         CONFIG="''${NIXOS_CONFIG_DIR:-$HOME/nixos-config}"
         MODE="boot"
@@ -257,6 +259,7 @@ in
     jq
     tmux
     tailcat
+    tailscale
     htop
 
     # --- neovim build toolchain ---------------------------------------------
